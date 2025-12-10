@@ -98,8 +98,7 @@ static Axioms::Not<A> Contradiction(Axioms::Imply<A,Axioms::Not<A>> imp)
 template <typename A, typename B>
 static B ModusPonens(Axioms::Imply<A,B> imp,A a)
 {
-    Axioms::Not<Axioms::Not<A>> dnA = Axioms::Not_TrueToDouble(a);
-    return Axioms::Or_Extract1(Axioms::Or_Commute(imp),dnA);
+    return Axioms::Or_Extract1(Axioms::Or_Commute(imp),Axioms::Not_TrueToDouble(a));
 }
 
 
