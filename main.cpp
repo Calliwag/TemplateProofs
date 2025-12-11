@@ -1,77 +1,101 @@
-    /*
+#include <concepts>
 
-    Axioms
+/*
 
-    */
+Axioms
+
+*/
 
 class Check;
+class Axioms;
 
+class PropBase {};
+
+template <typename T>
+concept Prop = std::derived_from<T, PropBase>;
+
+//======
+// A=>B
+//======
+template<Prop A, Prop B>
+struct I : public PropBase {private: I(){}; friend class Axioms; friend class Check;};
+
+//====
+// ¬A
+//====
+template<Prop A>
+struct N : public PropBase {private: N(){}; friend class Axioms; friend class Check;};
+
+
+// Source of axioms: https://www.maths.tcd.ie/~odunlain/u11602/online_notes/pdf_propos.pdf
 class Axioms
 {
 public:
-    //=====
-    // A^B
-    //=====
-    template <typename A, typename B>
-    struct And{private: And(){}; friend class Axioms; friend class Check; };
+    //========
+    // Axioms
+    //========
 
-    // A^B |- B^A
-    template <typename A, typename B>
-    static And<B,A> And_Commute(And<A,B>) { return And<B,A>(); }
+    template<Prop A, Prop B>
+    static I<A,I<B,A>> Axiom1() { return I<A,I<B,A>>(); };
 
-    // A^B |- A
-    template <typename A, typename B>
-    static A And_Extract1(And<A,B>) { return A(); }
+    template<Prop A, Prop B, Prop C>
+    static I<I<A,I<B,C>>,I<I<A,B>,I<A,C>>> Axiom2() { return I<I<A,I<B,C>>,I<I<A,B>,I<A,C>>>(); };
 
-    // A,B |- A^B
-    template <typename A, typename B>
-    static And<A,B> And_Construct(A,B) { return And<A,B>(); }
+    template<Prop A, Prop B>
+    static I<I<N<B>,N<A>>,I<I<N<B>,A>,B>> Axiom3() { return I<I<N<B>,N<A>>,I<I<N<B>,A>,B>>(); }
 
+    //===========================
+    // Modus Ponens: A=>B,A |- B
+    //===========================
+    template<Prop A, Prop B>
+    static B MP(I<A,B>,A) { return B(); };
 
-    //=====
-    // !A
-    //=====
-    template <typename A>
-    struct Not{private: Not(){}; friend class Axioms; friend class Check; };
+    //========================================================
+    // Deduction Theorem: If Logic,A |- B, then Logic |- A=>B
+    //========================================================
+    template<Prop A, Prop B>
+    static I<A,B> (*DT(B(*)(A)))()
+    {
+        return [](){ return I<A,B>(); };
+    };
 
-    // !(!A) |- A
-    template <typename A>
-    static A Not_DoubleToTrue(Not<Not<A>>) { return A(); }
+    //==================================================================
+    // Deduction Theorem (2): If Logic,A,P1 |- B, then Logic,P1 |- A=>B
+    //==================================================================
+    template<Prop A, Prop E1, Prop B>
+    static I<A,B> (*DT2(B(*)(A,E1)))(E1)
+    {
+        return [](E1){ return I<A,B>(); };
+    };
 
-    // A |- !(!A)
-    template <typename A>
-    static Not<Not<A>> Not_TrueToDouble(A) { return Not<Not<A>>(); }
-
-
-    //=====
-    // AvB
-    //=====
-    template <typename A, typename B>
-    struct Or{private: Or(){}; friend class Axioms; friend class Check;};
-
-    // AvB |- BvA
-    template <typename A, typename B>
-    static Or<B,A> Or_Commute(Or<A,B>) { return Or<B,A>(); };
-
-    // A |- AvB
-    template <typename A, typename B>
-    static Or<A,B> Or_Construct(A) { return Or<A,B>(); };
-
-    // AvB,!B |- A
-    template <typename A, typename B>
-    static A Or_Extract1(Or<A,B>,Not<B>) { return A(); };
-
-    // AvA |- A
-    template <typename A>
-    static A Or_Extract(Or<A,A>) { return A(); };
-
-
-    //======
-    // A=>B
-    //======
-    template <typename A, typename B>
-    using Imply = Or<Not<A>,B>;
+    //==================================================================
+    // Deduction Theorem (3): If Logic,A,P1,P2 |- B, then Logic,P1 |- A=>B
+    //==================================================================
+    template<Prop A, Prop E1, Prop E2, Prop B>
+    static I<A,B> (*DT3(B(*)(A,E1,E2)))(E1,E2)
+    {
+        return [](E1,E2){ return I<A,B>(); };
+    };
 };
+
+
+/*
+
+Derived Logical Connectives
+
+*/
+
+//=====
+// A∨B
+//=====
+template<Prop A, Prop B>
+using Or = I<N<A>,B>;
+
+//=====
+// A∧B
+//=====
+template<Prop A, Prop B>
+using And = N<Or<N<A>,N<B>>>;
 
 
 /*
@@ -80,44 +104,133 @@ Theorems
 
 */
 
-// A^B |- B
-template <typename A, typename B>
-static B And_Extract_2(Axioms::And<A,B> ab)
+// Logic |- A=>A
+template<Prop A>
+I<A,A> ImpSelf()
 {
-    return Axioms::And_Extract1(Axioms::And_Commute(ab));
+    auto step1 = Axioms::Axiom2<A,I<A,A>,A>();
+    auto step2 = Axioms::Axiom1<A,I<A,A>>();
+    auto step3 = Axioms::MP(step1,step2);
+    auto step4 = Axioms::Axiom1<A,A>();
+    auto step5 = Axioms::MP(step3,step4);
+    return step5;
 }
 
-// A=>!A |- !A
-template <typename A>
-static Axioms::Not<A> Contradiction(Axioms::Imply<A,Axioms::Not<A>> imp)
+// Logic, ¬A=>A |- A
+template<Prop A>
+A Contradict(I<N<A>,A> imp)
 {
-    return Axioms::Or_Extract(imp);
+    auto step1 = ImpSelf<N<A>>();
+    auto step2 = Axioms::Axiom3<A,A>();
+    auto step3 = Axioms::MP(step2,step1);
+    auto step4 = Axioms::MP(step3,imp);
+    return step4;
 }
 
-// A=>B,A |- B
-template <typename A, typename B>
-static B ModusPonens(Axioms::Imply<A,B> imp,A a)
+// Logic, ¬¬A |- A
+template<Prop A>
+A DoubleNot(N<N<A>> nna)
 {
-    return Axioms::Or_Extract1(Axioms::Or_Commute(imp),Axioms::Not_TrueToDouble(a));
+    auto step1 = Axioms::MP(Axioms::Axiom1<N<N<A>>,N<A>>(),nna);
+    auto step2 = ImpSelf<N<A>>();
+    auto step3 = Axioms::Axiom3<N<A>,A>();
+    auto step4 = Axioms::MP(step3,step1);
+    auto step5 = Axioms::MP(step4,step2);
+    return step5;
+}
+
+// Logic, A,A=>B,B=>C |- C
+template<Prop A, Prop B, Prop C>
+C ImpTransit_(A a, I<A,B> ab, I<B,C> bc)
+{
+    auto step1 = Axioms::MP(ab,a);
+    auto step2 = Axioms::MP(bc,step1);
+    return step2;
+}
+
+// Logic, A=>B,B=>C |- A=>C
+template<Prop A, Prop B, Prop C>
+I<A,C> ImpTransit(I<A,B> ab, I<B,C> bc)
+{
+    return Axioms::DT3(ImpTransit_<A,B,C>)(ab,bc);
+}
+
+// Logic, ¬B,A=>B |- ¬A
+template<Prop A, Prop B>
+N<A> ContraPositive_(N<B> nb, I<A,B> ab)
+{
+    auto step1 = Axioms::DT(DoubleNot<A>)();
+    auto step2 = ImpTransit(step1,ab);
+    auto step3 = Axioms::MP(Axioms::Axiom1<N<B>,N<N<A>>>(),nb);
+    auto step4 = Axioms::MP(Axioms::Axiom3<B,N<A>>(),step3);
+    auto step5 = Axioms::MP(step4,step2);
+    return step5;
+}
+
+// Logic, A=>B |- (¬B)=>(¬A)
+template<Prop A, Prop B>
+I<N<B>,N<A>> ContraPositive(I<A,B> ab)
+{
+    return Axioms::DT2(ContraPositive_<A,B>)(ab);
+}
+
+// Logic,B |- A∨B
+template<Prop A, Prop B>
+Or<A,B> OrConstruct2(B b)
+{
+    auto step1 = Axioms::Axiom1<B,N<A>>();
+    auto step2 = Axioms::MP(step1,b);
+    return step2;
+}
+
+// Logic,A∨B |- B∨A
+template<Prop A, Prop B>
+Or<B,A> OrCommute(Or<A,B> ab)
+{
+    auto step1 = ContraPositive(ab);
+    auto step2 = ImpTransit(step1,Axioms::DT(DoubleNot<A>)());
+    return step2;
+}
+
+// Logic,A |- A∨B
+template<Prop A, Prop B>
+Or<A,B> OrConstruct1(A a)
+{
+    return OrCommute(OrConstruct2<B,A>(a));
 }
 
 
 /*
 
-Theorem Checker
+Proof Checker
 
 */
 
+struct P1 : public PropBase {private: P1(){}; friend class Axioms; friend class Check;};
+struct P2 : public PropBase {private: P2(){}; friend class Axioms; friend class Check;};
+struct P3 : public PropBase {private: P3(){}; friend class Axioms; friend class Check;};
+struct P4 : public PropBase {private: P4(){}; friend class Axioms; friend class Check;};
+
 class Check
 {
-    struct I1 {};
-    struct I2 {};
-
     void check ()
     {
-        And_Extract_2<I1,I2>(Axioms::And<I1,I2>());
-        Contradiction(Axioms::Imply<I1,Axioms::Not<I1>>());
-        ModusPonens(Axioms::Imply<I1,I2>(),I1());
+        ImpSelf<P1>();
+
+        Contradict(I<N<P1>,P1>());
+
+        DoubleNot(N<N<P1>>());
+
+        ImpTransit_(P1(), I<P1,P2>(), I<P2,P3>());
+        ImpTransit(I<P1,P2>(),I<P2,P3>());
+
+        ContraPositive_(N<P2>(),I<P1,P2>());
+        ContraPositive(I<P1,P2>());
+
+        OrConstruct2<P1,P2>(P2());
+        OrCommute(Or<P1,P2>());
+        OrConstruct1<P1,P2>(P1());
+
     }
 };
 
