@@ -69,7 +69,7 @@ public:
     };
 
     //==================================================================
-    // Deduction Theorem (3): If Logic,A,P1,P2 |- B, then Logic,P1 |- A=>B
+    // Deduction Theorem (3): If Logic,A,P1,P2 |- B, then Logic,P1,P2 |- A=>B
     //==================================================================
     template<Prop A, Prop E1, Prop E2, Prop B>
     static I<A,B> (*DT3(B(*)(A,E1,E2)))(E1,E2)
