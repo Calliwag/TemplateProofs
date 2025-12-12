@@ -195,6 +195,16 @@ I<N<B>,N<A>> ContraPositive(I<A,B> ab)
     return Axioms::DT2(ContraPositive_<A,B>)(ab);
 }
 
+// Logic + A |- ¬¬A
+template<Prop A>
+N<N<A>> DoubleNotRev(A a)
+{
+    auto step1 = Axioms::MP(Axioms::Axiom1<A,N<A>>(),a);
+    auto step2 = ContraPositive(ContraPositive(step1));
+    auto step3 = Contradict(step2);
+    return step3;
+}
+
 // Logic + B |- A∨B
 template<Prop A, Prop B>
 Or<A,B> OrConstruct2(B b)
@@ -218,6 +228,54 @@ template<Prop A, Prop B>
 Or<A,B> OrConstruct1(A a)
 {
     return OrCommute(OrConstruct2<B,A>(a));
+}
+
+// Logic + A∧B |- A
+template<Prop A, Prop B>
+A AndExtract1(And<A,B> ab)
+{
+    auto step1 = Axioms::DT(OrConstruct1<N<A>,N<B>>)();
+    auto step2 = ContraPositive(step1);
+    auto step3 = Axioms::DT(DoubleNot<A>)();
+    auto step4 = ImpTransit(step2,step3);
+    auto step5 = Axioms::MP(step4,ab);
+    return step5;
+}
+
+// Logic + A∧B |- B
+template<Prop A, Prop B>
+B AndExtract2(And<A,B> ab)
+{
+    auto step1 = Axioms::DT(OrConstruct2<N<A>,N<B>>)();
+    auto step2 = ContraPositive(step1);
+    auto step3 = Axioms::DT(DoubleNot<B>)();
+    auto step4 = ImpTransit(step2,step3);
+    auto step5 = Axioms::MP(step4,ab);
+    return step5;
+}
+
+// Logic + A, B |- A∧B
+template<Prop A, Prop B>
+And<A,B> AndConstruct(A a, B b)
+{
+    auto step1 = +[](I<N<N<A>>,N<B>> X, A a, B b)
+    {
+        auto step1_1 = +[](I<N<N<A>>,N<B>> X, A a, B b)
+        {
+            auto step1_1_1 = DoubleNotRev(a);
+            auto step1_1_2 = Axioms::MP(X,step1_1_1);
+            return step1_1_2;
+        };
+        auto step1_2 = Axioms::DT3(step1_1)(a,b);
+        auto step1_3 = ContraPositive(step1_2);
+        auto step1_4 = DoubleNotRev(b);
+        auto step1_5 = Axioms::MP(step1_3,step1_4);
+        return step1_5;
+    };
+    auto step2 = Axioms::DT3(step1)(a,b);
+    auto step3 = ContraPositive(step2);
+    auto step4 = Contradict(step3);
+    return step4;
 }
 
 
@@ -248,10 +306,16 @@ class Check
         ContraPositive_(N<P2>(),I<P1,P2>());
         ContraPositive(I<P1,P2>());
 
+        DoubleNotRev<P1>(P1());
+
         OrConstruct2<P1,P2>(P2());
         OrCommute(Or<P1,P2>());
         OrConstruct1<P1,P2>(P1());
 
+        AndExtract1(And<P1,P2>());
+        AndExtract2(And<P1,P2>());
+
+        AndConstruct(P1(),P2());
     }
 };
 
