@@ -8,11 +8,6 @@ class PropBase {};
 template <typename T>
 concept Prop = std::derived_from<T, PropBase>;
 
-class NatBase {};
-
-template <typename N>
-concept Nat = std::derived_from<N, NatBase>;
-
 
 /*
 ====================================
@@ -50,57 +45,6 @@ using Or = I<N<A>,B>;
 //
 template<Prop A, Prop B>
 using And = N<Or<N<A>,N<B>>>;
-
-
-/*
-=========================================
-            Peano Arithmetic
-=========================================
-*/
-
-// Induction result: ∀X, P(X)
-template<template<Nat> class P>
-struct ForAll
-{
-    template<Nat X>
-    static P<X> Result();
-
-private:
-    ForAll(){};
-    friend class Axioms;
-    friend class Check;
-};
-
-//
-// N+
-//
-template<Nat N>
-struct S : public NatBase {private : S(){}; friend class Axioms; friend class Check;};
-
-//
-// N=M
-//
-template<Nat N, Nat M>
-struct Eq : public PropBase {private : Eq(){}; friend class Axioms; friend class Check;};
-
-//
-// N<M
-//
-template<Nat N, Nat M>
-struct Lt : public PropBase {private : Lt(){}; friend class Axioms; friend class Check;};
-
-struct Zero : public NatBase {private : Zero(){}; friend class Axioms; friend class Check;};
-using One = S<Zero>;
-using Two = S<One>;
-using Three = S<Two>;
-using Four = S<Three>;
-
-template<Nat N, Nat M>
-struct Add : public NatBase {
-private: Add(){};
-    friend class Axioms;
-    friend class Check;
-};
 
 
 // Source of axioms: https://www.maths.tcd.ie/~odunlain/u11602/online_notes/pdf_propos.pdf
@@ -173,47 +117,6 @@ public:
 
     // Generally, for n ∈ ℕ:
     // Deduction Theorem (n): If Logic,A,P1,P2,...,Pn |- B, then Logic,P1,P2,...,Pn |- A=>B
-
-
-/*
-================================================
-            Peano Arithmetic Axioms
-================================================
-*/
-    // ∀X, X=X
-    template<Nat X>
-    static Eq<X,X> EqRefl() { return Eq<X,X>(); };
-
-    // ∀X,Y, (X=Y) => (Y=X)
-    template<Nat X, Nat Y>
-    static I<Eq<X,Y>,Eq<Y,X>> EqSymm() { return I<Eq<X,Y>,Eq<Y,X>>(); };
-
-    // ∀X,Y,Z, ((X=Y) ∧ (Y=Z)) => (X=Z)
-    template<Nat X, Nat Y, Nat Z>
-    static I<And<Eq<X,Y>,Eq<Y,Z>>,Eq<X,Z>> EqTrans() { return I<And<Eq<X,Y>,Eq<Y,Z>>,Eq<X,Z>>(); };
-
-    // ∀X,Y, ((X+)=(Y+)) => (X=Y)
-    template<Nat X, Nat Y>
-    static I<Eq<S<X>,S<Y>>,Eq<X,Y>> SuccInj() { return I<Eq<S<X>,S<Y>>,Eq<X,Y>>(); };
-
-    // ∀X, (X+)≠0
-    template<Nat X>
-    static N<Eq<S<X>,Zero>> ZeroNotSucc() { return N<Eq<S<X>,Zero>>(); };
-
-    // Inductive step: P(X) => P(X+)
-    template<template<Nat> class P>
-    struct InductStep
-    {
-        template<Nat X>
-        static I<P<X>,P<S<X>>> Step();
-    };
-
-    // Logic + Peano + P(0),P(X)=>P(X+) |- ∀X, P(X)
-    template<template<Nat> class P>
-    static ForAll<P> Induction(typename P<Zero>::type, typename InductStep<P>::type)
-    {
-        return ForAll<P>();
-    }
 };
 
 
@@ -390,7 +293,8 @@ struct P4 : public PropBase {private: P4(){}; friend class Axioms; friend class 
 
 class Check
 {
-    void check ()
+public:
+    static void check ()
     {
         ImpSelf<P1>();
 
@@ -419,5 +323,6 @@ class Check
 
 int main()
 {
+    Check::check();
     return 0;
 }
